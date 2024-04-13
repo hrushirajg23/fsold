@@ -1,0 +1,19 @@
+PNODE First=NULL;
+
+    InsertFirst(&First,51);
+    InsertFirst(&First,21);
+    InsertFirst(&First,11);
+    Display(First);
+    
+    InsertLast(&First,101);
+    InsertLast(&First,111);
+    InsertLast(&First,121);
+    Display(First);
+    InsertAtPosition(&First,71,4);
+    Display(First);
+    DeletePosition(&First,4);
+    Display(First);
+    DeleteFirst(&First);
+    Display(First);
+    DeleteLast(&First);
+    Display(First);

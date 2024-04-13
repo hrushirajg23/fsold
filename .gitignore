@@ -1,0 +1,5 @@
+#Ignore the vscode files no need
+.vscode/
+.block.c.swp
+x.c
+*.exe
