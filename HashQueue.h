@@ -3,6 +3,14 @@
 
 #include"unix1.h"
 #include"superblock.h"
+#include"buffer.h"
+#include"superblock.h"
+
+
+
+typedef struct IncoreINODE IINODE;
+typedef struct IncoreINODE* PIINODE;
+typedef struct IncoreINODE** PPIINODE;
 
 struct HashqueueHeader{
     PIINODE First;
@@ -26,6 +34,7 @@ typedef struct HashqueueHeader* PHEADER;
 typedef struct HashqueueHeader** PPHEADER;
 
 
+
 int hashfunction(int inode_number,dev_t);
 PIINODE CreateNewInode(int num,dev_t);
 void CreateHashQueue(PCache ptrtocache,PHEADER,dev_t);
@@ -36,4 +45,5 @@ PIINODE iget(PCache cache,int inode_num,PHEADER freelisthead,dev_t);
 bool MapToHashQueue(PCache cache,int inode_num,dev_t);
 PCache PointToINODEcache();
 void SetParametersHashqueue(PCache cache,int inode_num,dev_t device_num,const char* filename,mode_t); 
+uint32_t bmap(PIINODE ptr_to_inode,off_t offset);
 #endif

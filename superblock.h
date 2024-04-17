@@ -5,6 +5,7 @@
 //#include"freelist.h"
 #include"unix1.h"
 #include"block.h"
+#include"buffer.h"
 #include<pthread.h>  // For POSIX threading support
 
 /*
@@ -21,6 +22,12 @@ The bitmap is stored within the superblock or another metadata structure,
 #define MAX_INODES 100
 #define DEVICE_NUM 4
 
+
+typedef struct IncoreINODE IINODE;
+typedef struct IncoreINODE* PIINODE;
+typedef struct IncoreINODE** PPIINODE;
+
+
 struct SuperBlock{
     uint64_t filesystem_size;
     uint32_t freeblocks;
@@ -28,13 +35,15 @@ struct SuperBlock{
     //Unix system doesn't use bitmap while  linux and other OS do use . Pg.100 J Bach
     //Unix has preffered to use linked list of disk blocks
     uint32_t next_free_block_index; //
-    pplist diskhead;
+    struct DBList** diskhead;
     //uint32_t next_free_bitmap_index;
     uint32_t inode_list_size;
     bool free_inodes[MAX_INODES];
     int indexofnextfree;
     int freeinodescount;
     pthread_mutex_t lockfieldINODE;
+    pthread_mutex_t lockSB;
+    pthread_cond_t cond;
     bool SBlocked;
     bool SBmodified;
 };
@@ -52,7 +61,12 @@ typedef struct FileTable{
 
 typedef struct uarea{
     PFILETABLE ptrtofiletable;
+    off_t offset;
+    uint64_t RWbytes;  //count of bytes to read or write
+    mode_t read_or_write;  //indicates read or write
+    char* address; //target address give by user to copy data
 }UFDT;
+
 
 
 

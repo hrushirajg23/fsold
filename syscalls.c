@@ -271,8 +271,22 @@ int main(){
     freebufflisthead.First=NULL;
     freebufflisthead.Last=NULL;
     initBufferCache(&buffcache,&freebufflisthead,device_num);
+
+    Linknext(&disklisthead);
+    DisplayDiskList(disklisthead);
+
+
+    puts("testing getblk algorithm \n");
+   bread(&buffcache,&freebufflisthead,95,device_num);
     return 0;
 }
 
 
-/* */
+/* command :- 
+
+gcc syscalls.c diskblock.c buffer.c hashqueue.c DoublyCircularList.c -o myexe -pthread
+
+On Unix-like systems, including Linux, you need to link against the pthread library explicitly when using pthread functions. 
+To do this, you can add -pthread option to your gcc command:
+
+*/

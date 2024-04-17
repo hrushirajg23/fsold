@@ -60,6 +60,9 @@
     "time.h": "c",
     "unix1.h": "c",
     "hashqueue.h": "c",
-    "stdlib.h": "c"
+    "stdlib.h": "c",
+    "doublycircular.h": "c",
+    "types.h": "c",
+    "pthread.h": "c"
   }
 }

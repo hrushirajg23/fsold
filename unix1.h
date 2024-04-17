@@ -6,6 +6,7 @@
 #include<sys/stat.h>
 #include<stdint.h>
 #include<stdbool.h>
+#include"block.h"
 
 #define NUM_DIRECT_POINTERS 10
 #define NUM_INDIRECT_POINTERS 3
@@ -21,8 +22,8 @@ struct DiskINODE{
     time_t inode_modfied_time;
     int links;
     off_t FileSize;     /* size in bytes, for regular files */
-    uint32_t direct_pointers[NUM_DIRECT_POINTERS];  //page 82 bach
-    uint32_t indirect_pointers[NUM_INDIRECT_POINTERS]; //page 82 bach
+    PBLOCK direct[NUM_DIRECT_POINTERS];  //page 82 bach
+    PBLOCK indirect[NUM_INDIRECT_POINTERS]; //page 82 bach
 };
 
 struct inode_status{
@@ -43,8 +44,8 @@ struct IncoreINODE{
     time_t inode_modfied_time;
     int links;
     off_t FileSize;     /* size in bytes, for regular files */
-    uint32_t direct_pointers[NUM_DIRECT_POINTERS];  //page 82 bach
-    uint32_t indirect_pointers[NUM_INDIRECT_POINTERS]; //page 82 bach
+    PBLOCK direct[NUM_DIRECT_POINTERS];  //page 82 bach
+    PBLOCK indirect[NUM_INDIRECT_POINTERS]; //page 82 bach
     struct inode_status status; 
     dev_t device_number;
     unsigned int inode_number;
@@ -72,3 +73,4 @@ typedef struct DiskINODE** PPDINODE;
 // }
 
 // 
+    

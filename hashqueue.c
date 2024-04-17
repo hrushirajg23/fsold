@@ -46,6 +46,10 @@ PIINODE CreateNewInode(int num,dev_t device_num){
     return newn;
 };
 
+/*
+    
+*/
+
 void CreateHashQueue(PCache ptrtocache,PHEADER freelisthead,dev_t device_num){
     register int iCnt=0;
     int header_num=0;
@@ -63,6 +67,8 @@ void CreateHashQueue(PCache ptrtocache,PHEADER freelisthead,dev_t device_num){
     puts("Displaying free list\n");
     DisplayFreeList(freelisthead);
 }
+
+
 
 
 bool MapToHashQueue(PCache cache,int inode_num,dev_t device_num){
@@ -191,4 +197,24 @@ void SetParametersHashqueue(PCache cache,int inode_num,dev_t device_num,const ch
         const char* monkey=strcpy(travel->filename,filename);
         printf("%s-",travel->filename);
         travel->Permissions=permissions;
+}
+
+/*
+    @brief: Conversion of Byte Offset to Block number in File system
+    @param: ptr_to_inode, offset
+    @returns: 1. *direct* block number in file system(i.e direct block number of file),
+            2. byte offset into block ,3. bytes of I/O in block
+            4. read ahead block number                  
+    @example: pg 84 J bach
+*/
+uint32_t bmap(PIINODE ptr_to_inode,off_t offset){
+    uint32_t blkno=0;
+    if(offset < (BLOCK_SIZE*NUM_DIRECT_POINTERS)){
+        blkno= offset/1024;
+    }
+    /*
+    else case for indirect block numbers
+    */
+    return blkno;
+
 }

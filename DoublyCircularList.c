@@ -5,7 +5,7 @@
 #include<stdlib.h>
 #include"HashQueue.h"
  
-void InsertFirst(PHEADER headptr,int iCnt,dev_t device_num){
+void InsertFirst(struct HashqueueHeader* headptr,int iCnt,dev_t device_num){
     PIINODE newn=CreateNewInode(iCnt,device_num);
     if(headptr->First==NULL && headptr->Last==NULL){
         headptr->First=newn;
