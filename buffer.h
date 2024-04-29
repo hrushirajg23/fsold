@@ -10,10 +10,11 @@
 
 #define PRIMARY_BUFFERS 12
 #define DEVICE_NUM 4
-#define BUFF_WRITE  01
-#define BUFF_READ   02
-#define BUFF_BUSY   03
-#define BUFF_ERROR  04
+//#define BUFF_WRITE  
+//#define BUFF_READ   02
+#define BUFF_LOCK   01
+//#define BUFF_ERROR  04
+#define BUFF_UNLOCK 02
 #define BUFF_DELAY_WRITE 05
 
 #define BLOCK_SIZE 1024
@@ -87,13 +88,8 @@ void DisplayFreeBufferList(PBUFFHEAD freehead);
 void DisplayBufferCache(PBUFFCACHE bcache);
 PBUFFER getblk(PBUFFCACHE,PBUFFHEAD,uint32_t,dev_t);
 PBUFFER bread(PBUFFCACHE,PBUFFHEAD,uint32_t,dev_t);
-void markbusy(PBUFFHEAD,uint32_t);
-
-
-
-
-
-
-
+void lock_unlock_buff(PBUFFHEAD,uint32_t,uint8_t);
+void bwrite(PBUFFER);
+void brelse(PBUFFCACHE,PBUFFHEAD,PBUFFER,dev_t);
 
 #endif

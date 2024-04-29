@@ -29,14 +29,21 @@ PBUFFER CreateNewBuffer(uint32_t block_num,dev_t device_number){
     return buff;
 }
 
-void markbusy(PBUFFHEAD buffhead,uint32_t blkno){
+void lock_unlock_buff(PBUFFHEAD buffhead,uint32_t blkno,uint8_t status){
     PBUFFER mark=buffhead->First;
     do{
         if(mark->block_number==blkno){
-            mark->buff_status.busy=true;
-            mark->buff_status.locked=true;
+            if(status==BUFF_LOCK){
+                mark->buff_status.busy=true;
+                mark->buff_status.locked=true;
+            }
+            else if(status==BUFF_UNLOCK){
+                mark->buff_status.busy=false;
+            mark->buff_status.locked=false;
+            }
             break;
         }
+        mark=mark->nextbuff;
     }while(mark!=buffhead->First);
 }
 
@@ -316,7 +323,15 @@ cha 96th block . So tevha Scenario 5 would be executed . Process would go to sle
 until 96th buffer becomes free .
 
 */
+/*
+    @brief: Returns a free number for a block . Has total 5 scenarios only 2-3 are executed
+    
 
+    //I added that buffer's ptr_to_block will point to the block
+    //else it will create problem while writing , check bwrite description and bread neatly
+
+
+*/
 PBUFFER getblk(PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead,uint32_t blkno,dev_t device_num){
     //scenario 1: find buffer and block number matching
     bool buffer_found=false;
@@ -325,9 +340,17 @@ PBUFFER getblk(PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead,uint32_t blkno,dev_t
     do{
         if(travel->block_number==blkno){
           //  pthread_mutex_lock(&travel->mutex);
+
+            travel->ptr_to_block=&(*(sobj.diskhead))->blocks[blkno];
+
+            /*
+            
+                ptr_to_block is a pointer to block structure which has an array of 1024 bytes
+            */
             if(travel->buff_status.busy==true){
                 while(travel->buff_status.busy || travel->buff_status.locked){
             //        pthread_cond_wait(&travel->cond,&travel->mutex);
+                    puts("waiting\n");
                     continue;
                 }
             }
@@ -350,6 +373,7 @@ PBUFFER getblk(PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead,uint32_t blkno,dev_t
     if(freebuffhead->First==NULL && freebuffhead->Last==NULL){
         while(freebuffhead->First==NULL && freebuffhead->Last==NULL){
             //pthread_cond_wait(&travel->cond,&travel->mutex);
+            puts("Waiting\n");
             continue;
         }
     }
@@ -364,16 +388,18 @@ PBUFFER getblk(PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead,uint32_t blkno,dev_t
     Scenario 2 -- found a buffer in freelist but it isn't on hashqueue
     ->Using hashfunction put it in particular hashqueue
     */
-    header_num=hashfunction(travel->block_number,device_num);
+    //was hashfunction(travel->blocknumber,dev_num) earlier
+    header_num=hashfunction(blkno,device_num);
     printf(" header number %d for block number %u\n",header_num,blkno);
     //Remove the old from hashqueue
     
     Removebuffer(&buff_cache->headers[header_num],travel->block_number,device_num);
     travel->block_number=blkno;
+    travel->ptr_to_block=&(*(sobj.diskhead))->blocks[blkno];  //added this line extra   
     printf("now travel's block number is %u\n",blkno);
 
     InsertFirstBuffer(&buff_cache->headers[header_num],blkno,device_num);
-    markbusy(&buff_cache->headers[header_num],blkno);
+    lock_unlock_buff(&buff_cache->headers[header_num],blkno,BUFF_LOCK);
    
     puts("Reeturning travel\n");
     if(travel==NULL){
@@ -389,12 +415,44 @@ PBUFFER bread(PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead,uint32_t blkno,dev_t 
     printf("\n Got buffer for blkno \n");
     //sobj.next_free_block_index;
     
-    strcpy(get->ptr_to_data,&((*sobj.diskhead)->blocks[blkno]));
+    
+    /*
+        modified from: strcpy(get->ptr_to_data,((*(sobj.diskhead))->blocks->block+blkno));
+    */
+   //modified to
+   strcpy(get->ptr_to_data,((*(sobj.diskhead))->blocks[blkno].block));
     puts("bread completed\n");
     return get;
 }
-/*
 
+//
+void bwrite(PBUFFER buff){
+    strcpy(buff->ptr_to_block->block,buff->ptr_to_data);
+
+    //has more complexity but still 
+
+    /*if what if buffer holds address of block number 95
+    and super block changes its list of free blocks as number of free blocks reduce to zero 
+
+    in this situation we will write to the wrong block 100%
+
+    For this user a pointer to the block from the buffer
+*/
+
+}
+
+
+void brelse(PBUFFCACHE buff_cache,PBUFFHEAD  freebuffhead,PBUFFER buff,dev_t device_num){
+    
+    //Enqueue free buffer
+    printf("Releasing buffer containing block %u",buff->block_number);
+    free(buff->ptr_to_data);
+    InsertLastfreebuffer(freebuffhead,buff->block_number,device_num);
+    int header_num=hashfunction(buff->block_number,device_num);
+    lock_unlock_buff(&buff_cache->headers[header_num],buff->block_number,BUFF_UNLOCK);
+}
+
+/*
 
 
 

@@ -43,6 +43,12 @@ PIINODE CreateNewInode(int num,dev_t device_num){
     newn->nextfree=NULL;
     newn->FileSize=0;
     //newn->filename=NULL;
+    for(int i=0;i<NUM_DIRECT_POINTERS;i++){
+        newn->direct[i]=NULL;
+    }
+    for(int i=0;i<NUM_INDIRECT_POINTERS;i++){
+        newn->indirect[i]=NULL;
+    }
     return newn;
 };
 

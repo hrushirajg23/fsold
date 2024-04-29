@@ -21,7 +21,7 @@ start block of inode list + (inode number -1)/number of inodes per block
 #include"buffer.h"
 #include<pthread.h>
 plist init_disklink(plist element){
-	memset(element->blocks,'\0',sizeof(element->blocks));
+	memset(element->blocks->block,'\0',sizeof(element->blocks));
 	element->next=NULL;
 	return element;
 }
@@ -107,7 +107,7 @@ void DisplayDiskList(plist head){
 		puts("Disk List is empty\n");
 	}
 	for(int i=0;i<BLOCKS_PER_LIST;i++){
-		printf("Block number %d has data %s\n",i,head->blocks->block);
+		printf("Block number %d has data %s\n",i,head->blocks[i].block);
 
 	}
 	if(head->next==NULL){

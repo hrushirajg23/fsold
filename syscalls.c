@@ -54,13 +54,13 @@ int PutInodeinIITABLE(PIINODE ptrtoinode){
 
 int AllocateinUAREA(FILETABLE *fptr){
     int iCnt=0;
-    while(ufdt[iCnt].ptrtofiletable!=NULL){
+    while(ufdt.ptrtofiletable[iCnt]!=NULL){
         iCnt++;
     }
     if(iCnt>MAX_INODES){
         return -1;
     }
-    ufdt[iCnt].ptrtofiletable=fptr;
+    ufdt.ptrtofiletable[iCnt]=fptr;
     return iCnt;
 }
 
@@ -80,7 +80,7 @@ int AllocateinFILETABLE(int incoreindex,mode_t mode){
 void InitialiseUAREA(){
     int iCnt=0;
     for(iCnt=0;iCnt<MAX_INODES;iCnt++){
-        ufdt[iCnt].ptrtofiletable=NULL;
+        ufdt.ptrtofiletable[iCnt]=NULL;
     }
 }
 
@@ -165,8 +165,8 @@ void DisplayInCoreTable(){
 void DisplayUFDT(){
     int iCnt=0;
     puts("\n----------------------------Displaying UFDTT----------------------------\n");
-    while(ufdt[iCnt].ptrtofiletable!=NULL){
-        printf("File descriptor %d points to %d\n",iCnt,ufdt[iCnt].ptrtofiletable->ptrtoinode->inode_number);
+    while(ufdt.ptrtofiletable[iCnt]!=NULL){
+        printf("File descriptor %d points to %d\n",iCnt,ufdt.ptrtofiletable[iCnt]->ptrtoinode->inode_number);
         iCnt++;
     }
     if(iCnt==0){
@@ -218,7 +218,92 @@ int openFile(const char* filename,mode_t mode,PCache cache,PHEADER freelisthead,
     return fd;
 }
 
-int main(){
+
+/**/
+int searchfd(const char* name){
+    int iCnt=0;
+    for(iCnt=0;iCnt<MAX_INODES;iCnt++){
+        if(strcmp(name,ufdt.ptrtofiletable[iCnt]->ptrtoinode->filename)==0){
+            return iCnt;
+        }
+        if(ufdt.ptrtofiletable[iCnt]==NULL){
+            return -1;
+        }
+    }
+    return -1;
+}
+
+int writefile(int filedes,char* buffer,uint64_t count,pplist disklisthead,dev_t device_num,PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead){
+    
+    printf("count is %d\n",count);
+    off_t position=0;
+    
+    PIINODE ptr_to_inode=NULL;
+    uint32_t blkno=0;
+    uint64_t iCnt=0,written=0,index=0;
+    PBUFFER buff=NULL;
+    uint16_t copy=0;
+    char* ptr_to_blk_data=NULL;
+    ptr_to_inode=ufdt.ptrtofiletable[filedes]->ptrtoinode;
+    ufdt.address=buffer;
+    ufdt.RWbytes=count;
+    while(iCnt<count){
+        position=ufdt.ptrtofiletable[filedes]->ptrtoinode->FileSize;
+        blkno=bmap(ptr_to_inode,position);
+
+        if(ptr_to_inode->direct[blkno]==NULL){
+            puts("Direct block is NULL\n");
+            buff=allocblock(disklisthead,device_num,buff_cache,freebuffhead);
+            ptr_to_inode->direct[blkno]=buff->ptr_to_block;
+            printf("Super block list block number is %u\n",buff->block_number);
+        }
+        else{
+            puts("Direct block conatins data\n");
+            buff=getblk(buff_cache,freebuffhead,95,device_num);
+           // buff->ptr_to_block=ptr_to_inode->direct+blkno;
+           printf("Super block list block number is %u\n",buff->block_number);
+        }
+        if(count-iCnt>=BLOCK_SIZE){
+            puts("Count greater than BLOCK_SIZE\n");
+            strncpy(buff->ptr_to_data,ufdt.address+iCnt,BLOCK_SIZE);
+            iCnt+=BLOCK_SIZE;
+            copy=BLOCK_SIZE;
+        }
+        else{
+            puts("Count less than BLOCK_SIZE\n");
+            strncpy(buff->ptr_to_data,ufdt.address+iCnt,count-iCnt);
+            copy=count-iCnt;
+            iCnt+=(count-iCnt);
+            
+        }
+        index=position%BLOCK_SIZE;
+        printf("index is %d\n",index);
+        ptr_to_blk_data=ptr_to_inode->direct[blkno]->block+index;
+
+        written=0;
+        puts("initiating disk write\n");
+        printf("Buffer contains data %s and has to copy %d bytes\n",buff->ptr_to_data,copy);
+        while(index<BLOCK_SIZE && written<copy){
+            ptr_to_blk_data[written]=buff->ptr_to_data[written]; //fixed this on 29-04-24
+            written++;
+            index++;
+        }
+        if(written!=copy){
+            iCnt-=copy-written;
+        }
+        ptr_to_inode->FileSize+=iCnt;
+
+        brelse(buff_cache,freebuffhead,buff,device_num);
+    }
+    printf("%s\n",ptr_to_blk_data);
+    printf("\nNumber of bytes written are %d\n",written);
+    return iCnt;
+
+    
+
+}
+int main()
+{
 
     dev_t device_num=4;
     HEADER freehead;
@@ -226,7 +311,16 @@ int main(){
     freehead.First=NULL;
     freehead.Last=NULL;
     Cache cache;
-    int fd1=0,fd2=0,fd3=0,fd4=0,fd5=0,fd6=0;
+    int fd1=0,fd2=0,fd3=0,fd4=0,fd5=0,fd6=0,fd7=0;
+
+    char* ptr=NULL;
+    int iRet=0,count=0;
+
+    char command[4][80], str[80],arr[1024]; 
+
+    //arr is used as buffer for input from user
+    //10 direct blocks = 10* 1024 =10240
+    //testing for indirect blocks will be done later 
 
     InitialiseSuperBlock(&disklisthead);
     InitialiseIITABLE();
@@ -241,14 +335,14 @@ int main(){
         perror("Couldn't create file\n");
         exit(EXIT_FAILURE);
     }
-    fd4=createfile("python.txt",0444,&cache,&freehead,device_num);
+    fd4=createfile("python.txt",0777,&cache,&freehead,device_num);
     fd5=createfile("cloud.txt",0444,&cache,&freehead,device_num);
     fd2=openFile("penguin.txt",0644,&cache,&freehead,device_num);
     if(fd2==-1){
         perror("Couldn't open file\n");
         exit(EXIT_FAILURE);
     }
-    fd3=openFile("python.txt",0644,&cache,&freehead,device_num);
+    fd3=openFile("python.txt",0777,&cache,&freehead,device_num);
     if(fd2==-1){
         perror("Couldn't open file\n");
         exit(EXIT_FAILURE);
@@ -272,19 +366,124 @@ int main(){
     freebufflisthead.Last=NULL;
     initBufferCache(&buffcache,&freebufflisthead,device_num);
 
-    Linknext(&disklisthead);
+    Linknext(&disklisthead);  //Initialise disk list
     DisplayDiskList(disklisthead);
 
 
-    puts("testing getblk algorithm \n");
-   bread(&buffcache,&freebufflisthead,95,device_num);
+    puts("testing write system call for python.txt \n");
+     //bread(&buffcache,&freebufflisthead,95,device_num);
+    // brelse(&buffcache,&freebufflisthead,)
+
+    //fd7=searchfd("python.txt");
+    // if(fd3==-1){
+    //     puts("System issue\n");
+    
+    // }
+    
+    printf("Enter the data: \n");
+    scanf("%[^'\n']s",arr);
+
+    iRet=strlen(arr);
+    if(iRet==0){
+        puts("Incorrect parameter\n");
+        
+    }
+
+    iRet=writefile(fd3,arr,iRet,&disklisthead,device_num,&buffcache,&freebufflisthead);
+
+    if(iRet==-1){
+        puts("ERROR: PERMISSION denied\n");
+
+    }
+
+    DisplayDiskList(disklisthead);
+
+    fflush(stdin);
+    ufdt.address=NULL;
+    ufdt.offset=0;
+    ufdt.RWbytes=0;
+    memset(arr,0,sizeof(arr));
+    printf("Enter the data: \n");
+    scanf("%[^'\n']s",arr);
+
+    iRet=strlen(arr);
+    if(iRet==0){
+        puts("Incorrect parameter\n");
+        
+    }
+
+    iRet=writefile(fd3,arr,iRet,&disklisthead,device_num,&buffcache,&freebufflisthead);
+
+    if(iRet==-1){
+        puts("ERROR: PERMISSION denied\n");
+
+    }
+    
+
+   DisplayDiskList(disklisthead);
     return 0;
 }
 
 
+//     while(1){
+//         fflush(stdin);
+//         strcpy(str,"");
+
+//         puts("\n debian: > ");
+    
+//         fgets(str,80,stdin);
+
+//         count=sscanf(str,"%s %s %s %s",command[0],command[1],command[2],command[3]);
+//         if(count==1){
+//             if(strcmp(command[0],"exit")==0){
+//                 puts("\nshell says goodbye\n");
+//                 DisplayDiskList(disklisthead);
+//                 break;
+//             }
+//         }
+//         if(count==2){
+//             if(strcmp(command[0],"write")==0){
+//                // fd3=searchfd(command[1]);
+//                 // if(fd3==-1){
+//                 //     puts("System issue\n");
+//                 //     continue;
+//                 // }
+//                 printf("Enter the data: \n");
+//                 scanf("%[^'\n']s",arr);
+
+//                 iRet=strlen(arr);
+//                 printf("data is of length %d\n",iRet);
+//                 if(iRet==0){
+//                     puts("Incorrect parameter\n");
+//                     continue;
+//                 }
+
+//                 iRet=writefile(fd3,arr,iRet,&disklisthead,device_num,&buffcache,&freebufflisthead);
+                
+//                 puts("No prblem in call\n");
+//                 if(iRet==-1){
+//                     puts("ERROR: PERMISSION denied\n");
+
+//                 }
+
+                
+//                 continue;
+//             }
+//     }
+    
+    
+// }
+
+
+    
+
+
+
+
+
 /* command :- 
 
-gcc syscalls.c diskblock.c buffer.c hashqueue.c DoublyCircularList.c -o myexe -pthread
+gcc syscalls.c diskblock.c buffer.c hashqueue.c DoublyCircularList.c -o myexe 
 
 On Unix-like systems, including Linux, you need to link against the pthread library explicitly when using pthread functions. 
 To do this, you can add -pthread option to your gcc command:

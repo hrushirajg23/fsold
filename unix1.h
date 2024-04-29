@@ -54,6 +54,7 @@ struct IncoreINODE{
     struct IncoreINODE *nextfree;
     struct IncoreINODE *prevfree;
     unsigned int reference_count;  
+    uint32_t disklist_blkno;
 };
 
 typedef struct IncoreINODE IINODE;

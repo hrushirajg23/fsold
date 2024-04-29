@@ -60,7 +60,7 @@ typedef struct FileTable{
 
 
 typedef struct uarea{
-    PFILETABLE ptrtofiletable;
+    PFILETABLE ptrtofiletable[MAX_INODES];
     off_t offset;
     uint64_t RWbytes;  //count of bytes to read or write
     mode_t read_or_write;  //indicates read or write
@@ -70,7 +70,7 @@ typedef struct uarea{
 
 
 
-UFDT ufdt[MAX_INODES];
+UFDT ufdt;
 
 FILETABLE FTABLE[MAX_INODES*5];
 PIINODE IITABLE[MAX_INODES];

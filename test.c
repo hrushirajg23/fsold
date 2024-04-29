@@ -29,8 +29,15 @@ void testing(struct Hashqueue* ptr){
 
 int main(){
     
-    struct Hashqueue obj;
+   // struct Hashqueue obj;
+//    char buffer[1024];
+//     puts("Enter lines\n");
+//     int scan=scanf("%[^'\n']s",buffer);
     
-    testing(&obj);
+//     printf("%d\n",scan);
+//     printf("%s",buffer);
+        printf("%d\n",1074%1024);
+        printf("%d\n",1074/1024);
+
     return 0;
 }
