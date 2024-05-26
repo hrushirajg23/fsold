@@ -218,6 +218,9 @@ uint32_t bmap(PIINODE ptr_to_inode,off_t offset){
     if(offset < (BLOCK_SIZE*NUM_DIRECT_POINTERS)){
         blkno= offset/1024;
     }
+    else{
+        return -1;
+    }
     /*
     else case for indirect block numbers
     */

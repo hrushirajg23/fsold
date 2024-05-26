@@ -412,9 +412,11 @@ PBUFFER getblk(PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead,uint32_t blkno,dev_t
 
 PBUFFER bread(PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead,uint32_t blkno,dev_t device_num){
     PBUFFER get=getblk(buff_cache,freebuffhead,blkno,device_num);
-    printf("\n Got buffer for blkno \n");
+    printf("\n Got buffer for blkno %u\n",get->block_number);
     //sobj.next_free_block_index;
-    
+    if(get==NULL){
+        return NULL;
+    }
     
     /*
         modified from: strcpy(get->ptr_to_data,((*(sobj.diskhead))->blocks->block+blkno));

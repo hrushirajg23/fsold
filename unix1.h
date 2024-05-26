@@ -43,7 +43,7 @@ struct IncoreINODE{
     time_t last_access_time;
     time_t inode_modfied_time;
     int links;
-    off_t FileSize;     /* size in bytes, for regular files */
+    uint64_t FileSize;     /* size in bytes, for regular files */
     PBLOCK direct[NUM_DIRECT_POINTERS];  //page 82 bach
     PBLOCK indirect[NUM_INDIRECT_POINTERS]; //page 82 bach
     struct inode_status status; 
@@ -64,6 +64,12 @@ typedef struct IncoreINODE** PPIINODE;
 typedef struct DiskINODE DINODE;
 typedef struct DiskINODE* PDINODE;
 typedef struct DiskINODE** PPDINODE;
+
+
+#define READ 00
+#define WRITE 01
+#define RDWR 02
+
 
 #endif
 

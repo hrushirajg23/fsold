@@ -9,6 +9,7 @@
 #include<stdio.h>
 #include<stdbool.h>
 #include<pthread.h>
+#include<time.h>
 #include"block.h"
 #include"buffer.h"
 
@@ -233,11 +234,11 @@ int searchfd(const char* name){
     return -1;
 }
 
+
 int writefile(int filedes,char* buffer,uint64_t count,pplist disklisthead,dev_t device_num,PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead){
     
-    printf("count is %d\n",count);
-    off_t position=0;
-    
+    //printf("count is %d\n",count);
+    uint64_t position=0;
     PIINODE ptr_to_inode=NULL;
     uint32_t blkno=0;
     uint64_t iCnt=0,written=0,index=0;
@@ -247,60 +248,143 @@ int writefile(int filedes,char* buffer,uint64_t count,pplist disklisthead,dev_t 
     ptr_to_inode=ufdt.ptrtofiletable[filedes]->ptrtoinode;
     ufdt.address=buffer;
     ufdt.RWbytes=count;
+   // uint32_t curr_disk_blk_no=0;
     while(iCnt<count){
         position=ufdt.ptrtofiletable[filedes]->ptrtoinode->FileSize;
+       // printf("Filesizee is -------------------------------------------%u\n",position);
         blkno=bmap(ptr_to_inode,position);
-
+        
+       // printf("bmap just Mapped to BLOCK number %u\n",blkno);
         if(ptr_to_inode->direct[blkno]==NULL){
-            puts("Direct block is NULL\n");
+          //  puts("Direct block is NULL\n");
             buff=allocblock(disklisthead,device_num,buff_cache,freebuffhead);
             ptr_to_inode->direct[blkno]=buff->ptr_to_block;
-            printf("Super block list block number is %u\n",buff->block_number);
+           // printf("Super block list block number is %u\n",buff->block_number);
+            ptr_to_inode->disklist_blkno=buff->block_number;    
+            
         }
         else{
-            puts("Direct block conatins data\n");
-            buff=getblk(buff_cache,freebuffhead,95,device_num);
+           // puts("Direct block conatins data\n");
+            buff=getblk(buff_cache,freebuffhead,ptr_to_inode->disklist_blkno,device_num);
            // buff->ptr_to_block=ptr_to_inode->direct+blkno;
-           printf("Super block list block number is %u\n",buff->block_number);
+          // printf("Current block number is %u\n",ptr_to_inode->disklist_blkno);
+           //printf("Super block list block number is %u\n",buff->block_number);
         }
         if(count-iCnt>=BLOCK_SIZE){
-            puts("Count greater than BLOCK_SIZE\n");
+           // puts("Count greater than BLOCK_SIZE\n");
             strncpy(buff->ptr_to_data,ufdt.address+iCnt,BLOCK_SIZE);
             iCnt+=BLOCK_SIZE;
             copy=BLOCK_SIZE;
         }
         else{
-            puts("Count less than BLOCK_SIZE\n");
+           // puts("Count less than BLOCK_SIZE\n");
             strncpy(buff->ptr_to_data,ufdt.address+iCnt,count-iCnt);
             copy=count-iCnt;
             iCnt+=(count-iCnt);
+           // printf("\n######  copy count is %u ##########\n",copy);
+           // printf("\n######  iCnt count is %u ##########\n",iCnt);
             
         }
         index=position%BLOCK_SIZE;
-        printf("index is %d\n",index);
+        //printf("index is %d\n",index);
         ptr_to_blk_data=ptr_to_inode->direct[blkno]->block+index;
-
+       // printf("before : ptr_to_blk_data contains : \n%s\n",ptr_to_inode->direct[blkno]->block);
         written=0;
-        puts("initiating disk write\n");
-        printf("Buffer contains data %s and has to copy %d bytes\n",buff->ptr_to_data,copy);
+       // puts("initiating disk write\n");
+       // printf("Buffer contains data %s and has to copy %d bytes\n",buff->ptr_to_data,copy);
         while(index<BLOCK_SIZE && written<copy){
             ptr_to_blk_data[written]=buff->ptr_to_data[written]; //fixed this on 29-04-24
             written++;
             index++;
         }
-        if(written!=copy){
+      //  printf("Wrote %u bytes in the block\n",written);
+        if(written<copy){   //if(written<copy)
+       // printf("Written bytes less than that to be written\n");
             iCnt-=copy-written;
+           // printf("iCnt noew reduced to %u\n",iCnt);
         }
-        ptr_to_inode->FileSize+=iCnt;
-
-        brelse(buff_cache,freebuffhead,buff,device_num);
+        ptr_to_inode->FileSize+=written;
+        ufdt.ptrtofiletable[filedes]->writeoffset=ptr_to_inode->FileSize;
+       // printf("\nFileSize changed to~~~~~~~~~~~~~~~~~ %u\n",ptr_to_inode->FileSize);
+       // brelse(buff_cache,freebuffhead,buff,device_num);
+       // puts("\n\nprinting blk_dataa:\n\n");
+        
+        
+        puts("\n\n");
     }
-    printf("%s\n",ptr_to_blk_data);
-    printf("\nNumber of bytes written are %d\n",written);
-    return iCnt;
-
     
+    ptr_to_inode->inode_modfied_time=time(NULL);
+    ptr_to_inode->last_access_time=time(NULL);
+    //ptr_to_inode->FileSize+=count;
+    //printf("\nNumber of bytes written are %d\n",written);
+   // printf("@Currently the fileSize is %u\n",ptr_to_inode->FileSize);
+    return iCnt;
+}
 
+static inline uint64_t MIN(uint64_t a,int64_t b){
+    if(a  > b){
+        return a;
+    }
+    else{
+        return b;
+    }
+}
+
+int readfile(int filedes,char* buffer,uint64_t count,pplist disklisthead,dev_t device_num,PBUFFCACHE buff_cache,PBUFFHEAD freebuffhead){
+    ufdt.address=buffer;
+    PIINODE ptr_to_inode=ufdt.ptrtofiletable[filedes]->ptrtoinode;
+    uint64_t yet=0; //yet is number of bytes still remaining to read
+    uint32_t disk_blk=0;
+    PBUFFER buff=NULL;
+    if(ptr_to_inode->Permissions<=0444){
+        return -1;
+    }
+    uint64_t position=ptr_to_inode->FileSize;
+    ufdt.RWbytes=count;
+    ptr_to_inode->status.locked=true;
+    ufdt.offset=ufdt.ptrtofiletable[filedes]->readoffset;
+    uint64_t from=0,chars=0;
+    yet=count;
+    if(yet<=0){
+        return 0;
+    }
+    while(yet){
+        if((disk_blk=bmap(ptr_to_inode,ufdt.ptrtofiletable[filedes]->readoffset))>=0){
+            printf("\nDisk block number mapped to is %u\n",disk_blk);
+            if((buff=bread(buff_cache,freebuffhead,ptr_to_inode->disklist_blkno,device_num))==NULL){
+                puts("Completed bread for readfile call\n");
+                break;
+            }
+        }
+        else{
+            buff=NULL;
+            puts("\nWhy the helll did I make buff null?\n");
+        }
+        
+        from=ufdt.ptrtofiletable[filedes]->readoffset%BLOCK_SIZE;
+        chars=MIN(BLOCK_SIZE-from,yet);
+        ufdt.ptrtofiletable[filedes]->readoffset+=chars;
+        yet-=chars;
+        if(buff){
+            char* p_data=buff->ptr_to_data+from;
+            while(chars-- > 0){
+                *(ufdt.address++)= *(p_data++);
+            }
+            brelse(buff_cache,freebuffhead,buff,device_num);
+        }
+        else{
+            while(chars-- > 0){
+                *(ufdt.address++)= 0;
+            }
+        }
+    }
+    ptr_to_inode->status.locked=false;
+    if(count-yet>0){
+        return -1;
+    }
+    else{
+        return count-yet;
+    }
 }
 int main()
 {
@@ -403,24 +487,55 @@ int main()
     ufdt.offset=0;
     ufdt.RWbytes=0;
     memset(arr,0,sizeof(arr));
-    printf("Enter the data: \n");
-    scanf("%[^'\n']s",arr);
 
-    iRet=strlen(arr);
-    if(iRet==0){
-        puts("Incorrect parameter\n");
-        
-    }
-
-    iRet=writefile(fd3,arr,iRet,&disklisthead,device_num,&buffcache,&freebufflisthead);
-
+    iRet=readfile(fd3,arr,20,&disklisthead,device_num,&buffcache,&freebufflisthead);
     if(iRet==-1){
-        puts("ERROR: PERMISSION denied\n");
-
+        perror("Error reading file\n");
+        //exit(EXIT_FAILURE);
     }
+    puts("\nReading file data ----------------------------------------------------\n");
+    for(int iCnt=0;iCnt<iRet;iCnt++){
+        printf("%c",arr[iCnt]);
+    }
+//     printf("Enter the data: \n");
+//     scanf("%[^'\n']s",arr);
+
+//     iRet=strlen(arr);
+//     if(iRet==0){
+//         puts("Incorrect parameter\n");
+        
+//     }
+
+//     iRet=writefile(fd3,arr,iRet,&disklisthead,device_num,&buffcache,&freebufflisthead);
+
+//     if(iRet==-1){
+//         puts("ERROR: PERMISSION denied\n");
+
+//     }
     
 
-   DisplayDiskList(disklisthead);
+//    DisplayDiskList(disklisthead);
+//    fflush(stdin);
+//     ufdt.address=NULL;
+//     ufdt.offset=0;
+//     ufdt.RWbytes=0;
+//     memset(arr,0,sizeof(arr));
+//     printf("Enter the data: \n");
+//     scanf("%[^'\n']s",arr);
+
+//     iRet=strlen(arr);
+//     if(iRet==0){
+//         puts("Incorrect parameter\n");
+        
+//     }
+
+//     iRet=writefile(fd3,arr,iRet,&disklisthead,device_num,&buffcache,&freebufflisthead);
+
+//     if(iRet==-1){
+//         puts("ERROR: PERMISSION denied\n");
+
+//     }
+//     DisplayDiskList(disklisthead);
     return 0;
 }
 

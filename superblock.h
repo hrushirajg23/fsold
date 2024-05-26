@@ -65,6 +65,7 @@ typedef struct uarea{
     uint64_t RWbytes;  //count of bytes to read or write
     mode_t read_or_write;  //indicates read or write
     char* address; //target address give by user to copy data
+    uint32_t curr_blkno;
 }UFDT;
 
 
